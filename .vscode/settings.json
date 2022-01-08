@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "eiodp.h": "c",
+        "eiodp_config.h": "c",
+        "socket.h": "c"
+    }
+}
