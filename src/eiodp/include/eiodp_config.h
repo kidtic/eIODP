@@ -3,8 +3,8 @@
 
 #include "eiodp.h"
 
-#define IOREAD(fd,buf,len) udpread(fd,buf,len)
-#define IOWRITE(fd,buf,len) udpsend(fd,buf,len)
+//#define IOREAD(fd,buf,len) udpread(fd,buf,len)
+//#define IOWRITE(fd,buf,len) udpsend(fd,buf,len)
 #define IODP_OS IODP_OS_LINUX     //"FreeRTos" "vxWorks"
 
 

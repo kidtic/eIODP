@@ -34,6 +34,10 @@ typedef struct
     unsigned int configmemSize;
     char configmem[IODP_CONFIGMEM_SIZE];
 
+    //iodevHandle设备的收发函数
+    int (*iodevRead)(int, char*, int);
+    int (*iodevWrite)(int, char*, int);
+
 #if (IODP_OS==IODP_OS_LINUX)
     sem_t readaddr_retsem;
     sem_t func_retsem;
@@ -52,10 +56,13 @@ typedef struct
         初始化框架，准备缓存取、信号量、创建接受服务线程
     @param:
         fd：依赖的io设备句柄，eiodp协议需要作用于标准io设备。
+        readfunc：fd设备读数据函数
+        writefunc：fd设备写数据函数
     @return:
         创建的eIODP_TYPE指针，可以通过这个指针来操作iodp
 *************************************************************/
-eIODP_TYPE* eiodp_init(unsigned int fd);
+eIODP_TYPE* eiodp_init(unsigned int fd, int (*readfunc)(int, char*, int),
+                int (*writefunc)(int, char*, int));
 
 /************************************************************
     @brief:

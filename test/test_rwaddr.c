@@ -9,6 +9,8 @@
 #include <eiodp.h>
 
 unsigned long recvByte=0;
+extern int udpsend(int fd,char* buf,int len);
+extern int udpread(int fd,char* buf,int len);
 
 void recvspeed(void)
 {
@@ -52,7 +54,7 @@ int start_send(void)
     printf("Hello World master!\n");
     //socket_recv();
     int sockt = udpopen(7777,8888);
-    eIODP_TYPE* pdev=eiodp_init(sockt);
+    eIODP_TYPE* pdev=eiodp_init(sockt,udpread,udpsend);
     srand((int)time(0));
     int errorcnt=0;
     int cnt=0;
@@ -94,12 +96,12 @@ int main()
 
     int socktServer = udpopen(8888,7777);
     eIODP_TYPE* pServer;
-    pServer = eiodp_init(socktServer);
+    pServer = eiodp_init(socktServer,udpread,udpsend);
 
     printf("Hello World master!\n");
 
     int sockt = udpopen(7777,8888);
-    eIODP_TYPE* pdev=eiodp_init(sockt);
+    eIODP_TYPE* pdev=eiodp_init(sockt,udpread,udpsend);
     srand((int)time(0));
     int errorcnt=0;
     int cnt=0;

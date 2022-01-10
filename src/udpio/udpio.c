@@ -48,7 +48,7 @@ unsigned long udpopen(unsigned int local_port,unsigned int remote_port){
     return sockt;
 }
 
-int udpsend(unsigned long fd,char* buf,int len)
+int udpsend(int fd,char* buf,int len)
 {
     int i=0;
     for(i=0;i<UDPFD_MAXNUM;i++){
@@ -57,7 +57,7 @@ int udpsend(unsigned long fd,char* buf,int len)
     return sendto(fd,buf,len,0,(struct sockaddr *)&udpfd_list[i].target_addr,target_addr_len);
 }
 
-int udpread(unsigned long fd,char* buf,int len)
+int udpread(int fd,char* buf,int len)
 {
     return recvfrom(fd,buf,len,0,(struct sockaddr *)&from_addr,&from_addr_len);
 }

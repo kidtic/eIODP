@@ -99,12 +99,25 @@ int eiodp_recvProcessTask(eIODP_TYPE* eiodp_fd);
         初始化框架，准备缓存取、信号量、创建接受服务线程
     @param:
         fd：依赖的io设备句柄，eiodp协议需要作用于标准io设备。
+        readfunc：fd设备读数据函数
+        writefunc：fd设备写数据函数
     @return:
         创建的eIODP_TYPE指针，可以通过这个指针来操作iodp
 *************************************************************/
-eIODP_TYPE* eiodp_init(unsigned int fd)
+eIODP_TYPE* eiodp_init(unsigned int fd, 
+                int (*readfunc)(int, char*, int),
+                int (*writefunc)(int, char*, int))
 {
     crc32_init();
+    //入参检查
+    if(fd==NULL){
+        printf("error: eiodp_init fd = NULL\n");
+        return NULL;
+    }
+    if(readfunc == NULL || writefunc == NULL){
+        printf("error: eiodp_init func = NULL\n");
+        return NULL;
+    }
 
     eIODP_TYPE* pDev = MOONOS_MALLOC(sizeof(eIODP_TYPE));
     if(pDev == NULL)return NULL;
@@ -134,6 +147,9 @@ eIODP_TYPE* eiodp_init(unsigned int fd)
 
     pDev->configmemSize=IODP_CONFIGMEM_SIZE;
     pDev->iodevHandle=fd;
+    pDev->iodevRead = readfunc;
+    pDev->iodevWrite = writefunc;
+    
 
 #if (IODP_OS==IODP_OS_LINUX)
     sem_init(&pDev->readaddr_retsem, 0, 0);
@@ -219,7 +235,8 @@ static int readaddr_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pkt
         retbuf[5]=0x02;
         retbuf[6]=0x01; //error code
         updatepktcrc(retbuf,11);
-        IOWRITE(devfd,retbuf,11);
+        //IOWRITE(devfd,retbuf,11);
+        eiodp_fd->iodevWrite(devfd,retbuf,11);
         return 0;
     }
 
@@ -239,7 +256,8 @@ static int readaddr_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pkt
     retbuf[9]=(unsigned char)(retlen)&0xff;
     memcpy(&retbuf[10],&(eiodp_fd->configmem[addr]),retlen);
     updatepktcrc(retbuf,retpktsize+4);
-    IOWRITE(devfd,retbuf,retpktsize+4);
+    //IOWRITE(devfd,retbuf,retpktsize+4);
+    eiodp_fd->iodevWrite(devfd,retbuf,retpktsize+4);
     MOONOS_FREE(retbuf);
     return 1;
 }
@@ -257,7 +275,8 @@ int eiodp_recvpushTask(eIODP_TYPE* eiodp_fd)
     int recvlen=0;
     int putret=0;
     while(1){
-        recvlen=IOREAD(devfd,recvbuf,1024);
+        //recvlen=IOREAD(devfd,recvbuf,1024);
+        recvlen = eiodp_fd->iodevRead(devfd,recvbuf,1024);
         if(recvlen<=0) continue;
         putret = put_ring(eiodp_fd->recv_ringbuf,recvbuf,recvlen);
         if(putret == -1){
@@ -374,7 +393,8 @@ void eiodpWriteAddr(eIODP_TYPE* eiodp_fd,unsigned short addr,unsigned short len,
 
     updatepktcrc(sendbuf,pktsize+4);
 
-    IOWRITE(devfd,sendbuf,pktsize+4);
+    //IOWRITE(devfd,sendbuf,pktsize+4);
+    eiodp_fd->iodevWrite(devfd,sendbuf,pktsize+4);
     MOONOS_FREE(sendbuf);
 }
 /************************************************************
@@ -415,7 +435,8 @@ int eiodpReadAddr(eIODP_TYPE* eiodp_fd,unsigned short addr,unsigned short len,un
     sendbuf[9]=(unsigned char)(len)&0xff;
     updatepktcrc(sendbuf,pktsize+4);
 
-    IOWRITE(devfd,sendbuf,pktsize+4);
+    //IOWRITE(devfd,sendbuf,pktsize+4);
+    eiodp_fd->iodevWrite(devfd,sendbuf,pktsize+4);
 
     MOONOS_FREE(sendbuf);
 
