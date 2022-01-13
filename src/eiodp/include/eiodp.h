@@ -22,6 +22,24 @@
 //type mask
 #define IODP_TYPEBIT_SR_MASK 0x80  //判断包为发送还是返回 typebit&IODP_TYPEBIT_SR_MASK==0 为返回包
 
+
+
+//--------------error code 
+#define IODP_OK 0
+#define IODP_ERROR_PARAM -10
+#define IODP_ERROR_HEAPOVER -11
+#define IODP_ERROR_REPEATCODE -12 
+
+
+
+//eiodp服务函数链表结构
+typedef struct
+{
+    uint16 funcode;
+    int (*callbackFunc)(uint16 len, void* data,uint16* retlen,void* retdata); 
+    void* pNext;
+}eIODP_FUNC_NODE;
+
 //
 typedef struct
 {
@@ -33,6 +51,9 @@ typedef struct
 
     unsigned int configmemSize;
     char configmem[IODP_CONFIGMEM_SIZE];
+
+    //注册的服务函数链表
+    eIODP_FUNC_NODE* pFuncHead;
 
     //iodevHandle设备的收发函数
     int (*iodevRead)(int, char*, int);
@@ -94,6 +115,31 @@ void eiodpWriteAddr(eIODP_TYPE* eiodp_fd,unsigned short addr,unsigned short len,
          0 - 成功
 *************************************************************/
 int eiodpReadAddr(eIODP_TYPE* eiodp_fd,unsigned short addr,unsigned short len,unsigned char* recvbuf);
+
+/************************************************************
+    @brief:
+        注册服务函数
+    @param:
+        eiodp_fd:eiodp句柄
+        funcode：服务函数代码
+        callbackFunc:服务函数
+    @return:
+        <0 - 失败（error code）
+         0 - 成功
+*************************************************************/
+int eiodpRegister(eIODP_TYPE* eiodp_fd,uint16 funcode,
+                int (*callbackFunc)(uint16 len, void* data,uint16* retlen,void* retdata));
+
+/************************************************************
+    @brief:
+        打印已经注册的服务函数
+    @param:
+        eiodp_fd:eiodp句柄
+    @return:
+        <0 - 失败（error code）
+         0 - 成功
+*************************************************************/
+int eiodpShowRegFunc(eIODP_TYPE* eiodp_fd);
 
 
 int checkpktcrc(unsigned char* data,unsigned int size);

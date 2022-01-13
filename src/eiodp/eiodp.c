@@ -149,6 +149,7 @@ eIODP_TYPE* eiodp_init(unsigned int fd,
     pDev->iodevHandle=fd;
     pDev->iodevRead = readfunc;
     pDev->iodevWrite = writefunc;
+    pDev->pFuncHead = nullptr;
     
 
 #if (IODP_OS==IODP_OS_LINUX)
@@ -181,6 +182,46 @@ static char* findhead(char* buf,int buflen)
     }
     return NULL;
 }
+
+//通过code找到服务函数node
+static eIODP_FUNC_NODE* findFuncNode(eIODP_FUNC_NODE* pHead,uint16 code)
+{
+    eIODP_FUNC_NODE* p=pHead;
+    while(p){
+        if(p->funcode == code){
+            return p;
+        }
+        p=p->pNext;
+    }
+    return NULL;
+}
+//往服务函数链表中插入新函数节点
+static int addFuncNode(eIODP_FUNC_NODE* pHead,eIODP_FUNC_NODE* node)
+{
+    if(node == NULL){
+        return -3;
+    }
+    if(node->pNext != NULL){
+        return -2;//不是一个单独的节点
+    }
+    //find
+    eIODP_FUNC_NODE* p=pHead;
+    while(p){
+        if(p->funcode == node->funcode){
+            return -1;//有重复code
+        }
+        if(p->pNext==NULL){
+            //add
+            p->pNext=node;
+            return 1;
+        }
+        p=p->pNext;
+    }
+
+    return -4;
+}
+
+
 /************************************************************
     @brief:
         写地址处理函数 type EC01
@@ -483,6 +524,67 @@ FAIL:
     return ret;
 }
 
+/************************************************************
+    @brief:
+        注册服务函数
+    @param:
+        eiodp_fd:eiodp句柄
+        funcode：服务函数代码
+        callbackFunc:服务函数
+    @return:
+        <0 - 失败（error code）
+         0 - 成功
+*************************************************************/
+int eiodpRegister(eIODP_TYPE* eiodp_fd,uint16 funcode,
+                int (*callbackFunc)(uint16 len, void* data,uint16* retlen,void* retdata))
+{
+    if(eiodp_fd == nullptr){
+        return IODP_ERROR_PARAM;
+    }
+    eIODP_FUNC_NODE* node = MOONOS_MALLOC(sizeof(eIODP_FUNC_NODE));
+    if(node == nullptr){
+        return IODP_ERROR_HEAPOVER;
+    }
+    node->funcode=funcode;
+    node->callbackFunc = callbackFunc;
+    node->pNext=nullptr;
+    if(eiodp_fd->pFuncHead == nullptr){
+        eiodp_fd->pFuncHead = node;
+        return IODP_OK;
+    }
+    int st = addFuncNode(eiodp_fd->pFuncHead,node);
+    if(st == -1){
+        printf("error addFuncNode have repeat code\n");
+        return IODP_ERROR_REPEATCODE;
+    }
+    return IODP_OK;
+}
+/************************************************************
+    @brief:
+        打印已经注册的服务函数
+    @param:
+        eiodp_fd:eiodp句柄
+    @return:
+        <0 - 失败（error code）
+         0 - 成功
+*************************************************************/
+int eiodpShowRegFunc(eIODP_TYPE* eiodp_fd)
+{
+    if(eiodp_fd == nullptr){
+        return IODP_ERROR_PARAM;
+    }
+    if(eiodp_fd->pFuncHead == nullptr){
+        printf("no Register Function\n");
+        return IODP_OK;
+    }
+    eIODP_FUNC_NODE* p = eiodp_fd->pFuncHead;
+    while(p){
+        printf("function code: 0x%04x   function ptr: 0x%x\n",p->funcode,p->callbackFunc);
+        p=p->pNext;
+    }
+
+    return IODP_OK;
+}
 
 //-----------------------------------crc32----------------------
 static unsigned long table[256];

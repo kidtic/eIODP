@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 project(eIODP)
 
 # cmake设置
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
 #SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -W -g -ggdb")
 #SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -W")
 SET(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-pthread")
@@ -39,3 +39,6 @@ add_library(${PROJECT_NAME} SHARED
 
 add_executable(test_rwaddr test/test_rwaddr.c)
 target_link_libraries(test_rwaddr ${PROJECT_NAME})
+
+add_executable(test_showregfunc test/test_showregfunc.c)
+target_link_libraries(test_showregfunc ${PROJECT_NAME})
