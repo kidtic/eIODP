@@ -15,6 +15,8 @@
 #define IODP_RETURN_BUFFER 512
 //定义iodp配置空间大小
 #define IODP_CONFIGMEM_SIZE 512
+//function数据包 最大返回参数数据
+#define IODP_FUNCPKT_RET_LEN 256
 
 #define IODP_LOG(str,a,b,c,d,e) printf(str,a,b,c,d,e)
 #define IODP_LOGMSG(str) printf(str)

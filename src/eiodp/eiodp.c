@@ -305,6 +305,65 @@ static int readaddr_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pkt
 
 /************************************************************
     @brief:
+    服务函数处理 type EC03
+    @param:
+        eiodp_fd：eiodp句柄
+        pktbuf：需要处理的数据包，这是已经解了eb90的数据包
+        pktsize：数据包长度
+    @return:
+        -1为帧头错误 
+        0为地址溢出错误（会有返回iodp） 
+        1为正确
+*************************************************************/
+static int function_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pktsize)
+{
+    if(pktbuf[0]!=0xec || pktbuf[1]!=0x03)return -1;
+    if(eiodp_fd == nullptr)return IODP_ERROR_PARAM;
+    unsigned short fcode = ((unsigned short)pktbuf[2] << 8) | ((unsigned short)pktbuf[3]) ;
+    unsigned short arglen = ((unsigned short)pktbuf[4] << 8) | ((unsigned short)pktbuf[5]) ;
+    eIODP_FUNC_NODE* pnode = findFuncNode(eiodp_fd->pFuncHead,fcode);
+    unsigned int devfd=eiodp_fd->iodevHandle;
+    if(pnode!=nullptr)
+    {
+        unsigned char retdata[IODP_FUNCPKT_RET_LEN];
+        unsigned short retlen=0;
+        pnode->callbackFunc(arglen,&pktbuf[6],&retlen,&retdata[10]);
+        unsigned short retpktsize = retlen+10;
+        //make return pkt
+        retdata[0]=0xeb;
+        retdata[1]=0x90;
+        retdata[2]=(unsigned char)(retpktsize>>8)&0xff;
+        retdata[3]=(unsigned char)(retpktsize)&0xff;
+        retdata[4]=0x6c;
+        retdata[5]=0x03;
+        retdata[6]=(unsigned char)(fcode>>8)&0xff;
+        retdata[7]=(unsigned char)(fcode)&0xff;
+        retdata[8]=(unsigned char)(retlen>>8)&0xff;
+        retdata[9]=(unsigned char)(retlen)&0xff;
+        updatepktcrc(retdata,retpktsize+4);
+        eiodp_fd->iodevWrite(devfd,retdata,retpktsize+4);
+    }
+    else{
+        unsigned char retdata[11];
+        unsigned short retpktsize = 7;
+        //make return pkt
+        retdata[0]=0xeb;
+        retdata[1]=0x90;
+        retdata[2]=(unsigned char)(retpktsize>>8)&0xff;
+        retdata[3]=(unsigned char)(retpktsize)&0xff;
+        retdata[4]=0x2c; //type error pkt
+        retdata[5]=0x03;
+        retdata[6]=0x01; //error code
+        updatepktcrc(retdata,11);
+        eiodp_fd->iodevWrite(devfd,retdata,11);
+    }
+    return IODP_OK;
+
+
+}
+
+/************************************************************
+    @brief:
         接受数据压入循环缓存-任务
     @param:
         eiodp_fd:eiodp句柄
@@ -365,6 +424,7 @@ int eiodp_recvProcessTask(eIODP_TYPE* eiodp_fd)
                 IODP_LOGMSG("retpkt crc error\n");
                 continue;
             }
+            //check pkt type code
             if(recvbuf[5]==0x2)//readaddr
             {
                 put_ring(eiodp_fd->retbuf_readaddr,&recvbuf[4],recvlen-8);//去掉头和crc
@@ -395,6 +455,11 @@ int eiodp_recvProcessTask(eIODP_TYPE* eiodp_fd)
             {
                 if(checkpktcrc(recvbuf,recvlen)==0){IODP_LOGMSG("readaddr pkt crc error\n");continue;}
                 readaddr_Process(eiodp_fd,&recvbuf[4],recvlen-8);
+            }
+            else if(recvbuf[5]==0x03)//function
+            {
+                if(checkpktcrc(recvbuf,recvlen)==0){IODP_LOGMSG("readaddr pkt crc error\n");continue;}
+                function_Process(eiodp_fd,&recvbuf[4],recvlen-8);
             }
             else {IODP_LOGMSG("retpkt recvbuf[5] no match \n");continue;}
         }
