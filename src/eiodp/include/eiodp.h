@@ -142,6 +142,21 @@ int eiodpRegister(eIODP_TYPE* eiodp_fd,uint16 funcode,
          0 - 成功
 *************************************************************/
 int eiodpShowRegFunc(eIODP_TYPE* eiodp_fd);
+/************************************************************
+    @brief:
+        调用服务端的API接口，该接口由服务端的eiodpRegister注册的callbackFunc函数来提供
+    @param:
+        eiodp_fd:eiodp句柄
+        code：API代码
+        argsize：入参arg的长度
+        arg：API入参
+        retarg：用户需要提供返回参数的容器
+    @return:
+        <0 - 失败（error code）
+        >0 - 成功 返回参数长度
+*************************************************************/
+int eiodpFunction(eIODP_TYPE* eiodp_fd, uint16 code, 
+        uint16 argsize,void* arg, void* retarg);
 
 
 int checkpktcrc(unsigned char* data,unsigned int size);

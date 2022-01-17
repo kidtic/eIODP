@@ -594,7 +594,7 @@ FAIL:
         注册服务函数
     @param:
         eiodp_fd:eiodp句柄
-        funcode：服务函数代码
+        funcode：API代码
         callbackFunc:服务函数
     @return:
         <0 - 失败（error code）
@@ -649,6 +649,85 @@ int eiodpShowRegFunc(eIODP_TYPE* eiodp_fd)
     }
 
     return IODP_OK;
+}
+
+/************************************************************
+    @brief:
+        调用服务端的API接口，该接口由服务端的eiodpRegister注册的callbackFunc函数来提供
+    @param:
+        eiodp_fd:eiodp句柄
+        code：API代码
+        argsize：入参arg的长度
+        arg：API入参
+        retarg：用户需要提供返回参数的容器
+    @return:
+        <0 - 失败（error code）
+        >0 - 成功 返回参数长度
+*************************************************************/
+int eiodpFunction(eIODP_TYPE* eiodp_fd, uint16 code, 
+        uint16 argsize,void* arg, void* retarg)
+{
+    unsigned int devfd=eiodp_fd->iodevHandle;
+    int ret=0;
+
+    unsigned short pktsize=10+argsize;
+    unsigned char *sendbuf=MOONOS_MALLOC(pktsize+4);
+
+    sendbuf[0]=0xeb;sendbuf[1]=0x90;
+    sendbuf[2]=(unsigned char)(pktsize>>8)&0xff;
+    sendbuf[3]=(unsigned char)(pktsize)&0xff;
+    sendbuf[4]=0xec;sendbuf[5]=0x03;
+    sendbuf[6]=(unsigned char)(code>>8)&0xff;
+    sendbuf[7]=(unsigned char)(code)&0xff;
+    sendbuf[8]=(unsigned char)(argsize>>8)&0xff;
+    sendbuf[9]=(unsigned char)(argsize)&0xff;
+    memcpy(&sendbuf[10],arg,argsize);
+    updatepktcrc(sendbuf,pktsize+4);
+
+    //IOWRITE(devfd,sendbuf,pktsize+4);
+    eiodp_fd->iodevWrite(devfd,sendbuf,pktsize+4);
+    MOONOS_FREE(sendbuf);
+
+    //等待返回
+#if (IODP_OS==IODP_OS_LINUX)
+    struct timespec tv;clock_gettime(CLOCK_REALTIME, &tv);tv.tv_sec += 3; // 这个是设置等待时长的。单位是秒
+    int timeres=0;timeres = sem_timedwait(&(eiodp_fd->func_retsem),&tv);
+    if(timeres == -1){IODP_LOGMSG("time out\n");return -6;}
+#elif (IODP_OS==IODP_OS_FREERTOS)
+#endif
+
+    unsigned char *retbuf=MOONOS_MALLOC(IODP_FUNCPKT_RET_LEN);
+    unsigned short recvlen=0;
+    recvlen = get_ring(eiodp_fd->retbuf_func,retbuf,IODP_FUNCPKT_RET_LEN);
+    if(recvlen<7){ret=-1;goto FAIL;}
+    if(retbuf[0]==0x6c && retbuf[1]==0x03)
+    {
+        unsigned short retcode = ((unsigned short)retbuf[2] << 8) | ((unsigned short)retbuf[3]) ;
+        unsigned short retlen = ((unsigned short)retbuf[4] << 8) | ((unsigned short)retbuf[5]) ;
+        if(retcode!=code){ret=-4;goto FAIL;}
+        if(retlen!=recvlen-6){ret=-5;goto FAIL;}
+        memcpy(retarg,&retbuf[6],retlen);
+        MOONOS_FREE(retbuf);
+        return retlen;
+    }
+    else if(retbuf[0]==0x2c && retbuf[1]==0x03)
+    {
+        printf("eiodpFunction return error code:0x%x\n",retbuf[2]);
+        ret = -3;
+        goto FAIL;
+    }
+    else{
+        printf("eiodpFunction noreturn\n");
+        ret = -2;
+        goto FAIL;
+    }
+
+
+
+FAIL:
+    MOONOS_FREE(retbuf);
+    return ret;
+
 }
 
 //-----------------------------------crc32----------------------

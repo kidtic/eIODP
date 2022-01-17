@@ -42,3 +42,6 @@ target_link_libraries(test_rwaddr ${PROJECT_NAME})
 
 add_executable(test_showregfunc test/test_showregfunc.c)
 target_link_libraries(test_showregfunc ${PROJECT_NAME})
+
+add_executable(test_func test/test_func.c)
+target_link_libraries(test_func ${PROJECT_NAME})
