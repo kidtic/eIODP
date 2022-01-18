@@ -199,16 +199,16 @@ static eIODP_FUNC_NODE* findFuncNode(eIODP_FUNC_NODE* pHead,uint16 code)
 static int addFuncNode(eIODP_FUNC_NODE* pHead,eIODP_FUNC_NODE* node)
 {
     if(node == NULL){
-        return -3;
+        return IODP_ERROR_PARAM;
     }
     if(node->pNext != NULL){
-        return -2;//不是一个单独的节点
+        return IODP_ERROR_PARAM;//不是一个单独的节点
     }
     //find
     eIODP_FUNC_NODE* p=pHead;
     while(p){
         if(p->funcode == node->funcode){
-            return -1;//有重复code
+            return IODP_ERROR_APINODE_REPEAT;//有重复code
         }
         if(p->pNext==NULL){
             //add
@@ -235,7 +235,7 @@ static int addFuncNode(eIODP_FUNC_NODE* pHead,eIODP_FUNC_NODE* node)
         1为正确
 *************************************************************/
 static int writeaddr_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pktsize){
-    if(pktbuf[0]!=0xec || pktbuf[1]!=0x01)return -1;
+    if(pktbuf[0]!=0xec || pktbuf[1]!=0x01)return IODP_ERROR_WADDR_HEAD;
     unsigned short addr = ((unsigned short)pktbuf[2] << 8) | ((unsigned short)pktbuf[3]) ;
     unsigned short len = ((unsigned short)pktbuf[4] << 8) | ((unsigned short)pktbuf[5]) ;
     int i=0;
@@ -254,13 +254,13 @@ static int writeaddr_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pk
         pktbuf：需要处理的数据包，这是已经解了eb90的数据包
         pktsize：数据包长度
     @return:
-        -1为帧头错误 
+        IODP_ERROR_RADDR_HEAD 为帧头错误 
         0为地址溢出错误（会有返回iodp） 
         1为正确
 *************************************************************/
 static int readaddr_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pktsize)
 {
-    if(pktbuf[0]!=0xec || pktbuf[1]!=0x02)return -1;
+    if(pktbuf[0]!=0xec || pktbuf[1]!=0x02)return IODP_ERROR_RADDR_HEAD;
     unsigned short addr = ((unsigned short)pktbuf[2] << 8) | ((unsigned short)pktbuf[3]) ;
     unsigned short len = ((unsigned short)pktbuf[4] << 8) | ((unsigned short)pktbuf[5]) ;
     unsigned int devfd=eiodp_fd->iodevHandle;
@@ -317,7 +317,7 @@ static int readaddr_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pkt
 *************************************************************/
 static int function_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pktsize)
 {
-    if(pktbuf[0]!=0xec || pktbuf[1]!=0x03)return -1;
+    if(pktbuf[0]!=0xec || pktbuf[1]!=0x03)return IODP_ERROR_API_HEAD;
     if(eiodp_fd == nullptr)return IODP_ERROR_PARAM;
     unsigned short fcode = ((unsigned short)pktbuf[2] << 8) | ((unsigned short)pktbuf[3]) ;
     unsigned short arglen = ((unsigned short)pktbuf[4] << 8) | ((unsigned short)pktbuf[5]) ;
@@ -553,19 +553,19 @@ int eiodpReadAddr(eIODP_TYPE* eiodp_fd,unsigned short addr,unsigned short len,un
     tv.tv_sec += 3; // 这个是设置等待时长的。单位是秒
     int timeres=0;
     timeres = sem_timedwait(&(eiodp_fd->readaddr_retsem),&tv);
-    if(timeres == -1){IODP_LOGMSG("time out\n");return -6;}
+    if(timeres == -1){IODP_LOGMSG("time out\n");return IODP_ERROR_TIMEOUT;}
 #elif (IODP_OS==IODP_OS_FREERTOS)
 #endif
     unsigned char *retbuf=MOONOS_MALLOC(len+14);
     unsigned short recvlen=0;
     recvlen = get_ring(eiodp_fd->retbuf_readaddr,retbuf,len+14);
-    if(recvlen<7){ret=-1;goto FAIL;}
+    if(recvlen<7){ret=IODP_ERROR_SMOLL_RECVLEN;goto FAIL;}
     if(retbuf[0]==0x6c && retbuf[1]==0x02)
     {
         unsigned short retaddr = ((unsigned short)retbuf[2] << 8) | ((unsigned short)retbuf[3]) ;
         unsigned short retlen = ((unsigned short)retbuf[4] << 8) | ((unsigned short)retbuf[5]) ;
-        if(retaddr!=addr){ret=-4;goto FAIL;}
-        if(retlen!=recvlen-6){ret=-5;goto FAIL;}
+        if(retaddr!=addr){ret=IODP_ERROR_RETCODE;goto FAIL;}
+        if(retlen!=recvlen-6){ret=IODP_ERROR_RECVLEN;goto FAIL;}
         memcpy(recvbuf,&retbuf[6],retlen);
         MOONOS_FREE(retbuf);
         return retlen;
@@ -573,12 +573,12 @@ int eiodpReadAddr(eIODP_TYPE* eiodp_fd,unsigned short addr,unsigned short len,un
     else if(retbuf[0]==0x2c && retbuf[1]==0x02)
     {
         printf("eiodpReadAddr return error code:0x%x\n",retbuf[2]);
-        ret = -3;
+        ret = IODP_ERROR_PKT;
         goto FAIL;
     }
     else{
         printf("eiodpReadAddr noreturn\n");
-        ret = -2;
+        ret = IODP_ERROR_NORET;
         goto FAIL;
     }
 
@@ -618,7 +618,7 @@ int eiodpRegister(eIODP_TYPE* eiodp_fd,uint16 funcode,
         return IODP_OK;
     }
     int st = addFuncNode(eiodp_fd->pFuncHead,node);
-    if(st == -1){
+    if(st == IODP_ERROR_APINODE_REPEAT){
         printf("error addFuncNode have repeat code\n");
         return IODP_ERROR_REPEATCODE;
     }
@@ -692,20 +692,20 @@ int eiodpFunction(eIODP_TYPE* eiodp_fd, uint16 code,
 #if (IODP_OS==IODP_OS_LINUX)
     struct timespec tv;clock_gettime(CLOCK_REALTIME, &tv);tv.tv_sec += 3; // 这个是设置等待时长的。单位是秒
     int timeres=0;timeres = sem_timedwait(&(eiodp_fd->func_retsem),&tv);
-    if(timeres == -1){IODP_LOGMSG("time out\n");return -6;}
+    if(timeres == -1){IODP_LOGMSG("time out\n");return IODP_ERROR_TIMEOUT;}
 #elif (IODP_OS==IODP_OS_FREERTOS)
 #endif
 
     unsigned char *retbuf=MOONOS_MALLOC(IODP_FUNCPKT_RET_LEN);
     unsigned short recvlen=0;
     recvlen = get_ring(eiodp_fd->retbuf_func,retbuf,IODP_FUNCPKT_RET_LEN);
-    if(recvlen<7){ret=-1;goto FAIL;}
+    if(recvlen<7){ret=IODP_ERROR_SMOLL_RECVLEN;goto FAIL;}
     if(retbuf[0]==0x6c && retbuf[1]==0x03)
     {
         unsigned short retcode = ((unsigned short)retbuf[2] << 8) | ((unsigned short)retbuf[3]) ;
         unsigned short retlen = ((unsigned short)retbuf[4] << 8) | ((unsigned short)retbuf[5]) ;
-        if(retcode!=code){ret=-4;goto FAIL;}
-        if(retlen!=recvlen-6){ret=-5;goto FAIL;}
+        if(retcode!=code){ret=IODP_ERROR_RETCODE;goto FAIL;}
+        if(retlen!=recvlen-6){ret=IODP_ERROR_RECVLEN;goto FAIL;}
         memcpy(retarg,&retbuf[6],retlen);
         MOONOS_FREE(retbuf);
         return retlen;
@@ -713,12 +713,12 @@ int eiodpFunction(eIODP_TYPE* eiodp_fd, uint16 code,
     else if(retbuf[0]==0x2c && retbuf[1]==0x03)
     {
         printf("eiodpFunction return error code:0x%x\n",retbuf[2]);
-        ret = -3;
+        ret = IODP_ERROR_PKT;
         goto FAIL;
     }
     else{
         printf("eiodpFunction noreturn\n");
-        ret = -2;
+        ret = IODP_ERROR_NORET;
         goto FAIL;
     }
 
