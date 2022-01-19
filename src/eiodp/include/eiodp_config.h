@@ -5,7 +5,7 @@
 
 //#define IOREAD(fd,buf,len) udpread(fd,buf,len)
 //#define IOWRITE(fd,buf,len) udpsend(fd,buf,len)
-#define IODP_OS IODP_OS_LINUX     //"FreeRTos" "vxWorks"
+#define IODP_OS IODP_OS_LINUX     //"FreeRTos" "vxWorks" 
 
 
 
@@ -21,6 +21,7 @@
     #include "FreeRTOS.h"
     #define IODP_SEM_TAKE(sem) xSemaphoreTake(sem,(TickType_t)xMaxBlockTime)
     #define IODP_SEM_GIVE(sem) xSemaphoreGive(sem)
+#elif (IODP_OS==IODP_OS_NULL)
 #endif
 
 #endif

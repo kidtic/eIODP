@@ -362,6 +362,8 @@ static int function_Process(eIODP_TYPE* eiodp_fd, unsigned char* pktbuf, int pkt
 
 }
 
+#if (IODP_OS!=IODP_OS_NULL)
+
 /************************************************************
     @brief:
         接受数据压入循环缓存-任务
@@ -384,7 +386,6 @@ int eiodp_recvpushTask(eIODP_TYPE* eiodp_fd)
         }
     }
 }
-
 
 /************************************************************
     @brief:
@@ -466,6 +467,82 @@ int eiodp_recvProcessTask(eIODP_TYPE* eiodp_fd)
 
     }
 }
+#endif
+
+/************************************************************
+    @brief:
+        接收服务函数-任务(无操作系统，连续字符read) 在无操作系统的程序里 需要连续调用
+    @param:
+        eiodp_fd:eiodp句柄
+*************************************************************/
+#if (IODP_OS==IODP_OS_NULL)
+int eiodp_recvProcessTask_nos(eIODP_TYPE* eiodp_fd)
+{
+    unsigned int devfd=eiodp_fd->iodevHandle;
+    unsigned char recvbuf[1024]={0};
+    int recvlen=0;
+    unsigned short pktlen=0;
+    {
+        recvlen=eiodp_fd->iodevRead(devfd, recvbuf,1);
+        if(recvlen<=0){return -1;}
+        //确定帧头,并持续接受4字节
+        if(recvbuf[0]!=0xeb){IODP_LOGMSG("recvbuf[0]!=0xeb\n");return -1;}
+        while(recvlen<4){
+            recvlen+=eiodp_fd->iodevRead(devfd,&recvbuf[recvlen],4-recvlen);
+        }
+        if(recvbuf[1]!=0x90){IODP_LOGMSG("recvbuf[1]!=0x90\n");return -1;}
+        //此时已经读取了4位数据
+        pktlen = ((unsigned short)recvbuf[2] << 8) | ((unsigned short)recvbuf[3]) ;
+        if(pktlen>=1024-4){IODP_LOGMSG("pktlen>=1024-4\n");return -1;}
+        pktlen += 4;
+        while(recvlen<pktlen){
+            recvlen+=eiodp_fd->iodevRead(devfd,&recvbuf[recvlen],pktlen-recvlen);
+        }
+
+        //------------------确定包类型
+        if(((recvbuf[4])&IODP_TYPEBIT_SR_MASK)==0)//确定包为返回类型
+        {
+            //接受到返回类型的包，先校验，再根据返回类型确定不同的返回缓冲区，再给信号
+            if(checkpktcrc(recvbuf,recvlen)==0){
+                IODP_LOGMSG("retpkt crc error\n");
+                return -1;
+            }
+            //check pkt type code
+            if(recvbuf[5]==0x2)//readaddr
+            {
+                put_ring(eiodp_fd->retbuf_readaddr,&recvbuf[4],recvlen-8);//去掉头和crc
+            }
+            else if(recvbuf[5]==0x3)//function
+            {
+                put_ring(eiodp_fd->retbuf_func,&recvbuf[4],recvlen-8);//去掉头和crc
+            }
+            else {IODP_LOGMSG("pkt recvbuf[5] no match \n");return -1;}
+        }
+        else                                 //确定包为发送类型
+        {
+            //接受到发送类型的包需要 更具type代码分别转向不同的服务类型
+            if(recvbuf[5]==0x01)//write addr
+            {
+                if(checkpktcrc(recvbuf,recvlen)==0){IODP_LOGMSG("write addr pkt crc error\n");return -1;}
+                writeaddr_Process(eiodp_fd,&recvbuf[4],recvlen-8);
+            }
+            else if(recvbuf[5]==0x02)//readaddr
+            {
+                if(checkpktcrc(recvbuf,recvlen)==0){IODP_LOGMSG("readaddr pkt crc error\n");return -1;}
+                readaddr_Process(eiodp_fd,&recvbuf[4],recvlen-8);
+            }
+            else if(recvbuf[5]==0x03)//function
+            {
+                if(checkpktcrc(recvbuf,recvlen)==0){IODP_LOGMSG("readaddr pkt crc error\n");return -1;}
+                function_Process(eiodp_fd,&recvbuf[4],recvlen-8);
+            }
+            else {IODP_LOGMSG("retpkt recvbuf[5] no match \n");return -1;}
+        }
+
+    }
+    return 0;
+}
+#endif
 
 //---------------------------send cmd----------------------------
 
@@ -555,6 +632,16 @@ int eiodpReadAddr(eIODP_TYPE* eiodp_fd,unsigned short addr,unsigned short len,un
     timeres = sem_timedwait(&(eiodp_fd->readaddr_retsem),&tv);
     if(timeres == -1){IODP_LOGMSG("time out\n");return IODP_ERROR_TIMEOUT;}
 #elif (IODP_OS==IODP_OS_FREERTOS)
+#elif (IODP_OS==IODP_OS_NULL)
+    long timeout=0;
+    while (eiodp_recvProcessTask_nos(eiodp_fd)==-1)
+    {
+        timeout++;
+        if(timeout>1000*10000){
+            IODP_LOGMSG("time out\n");
+            return IODP_ERROR_TIMEOUT;
+        }
+    } 
 #endif
     unsigned char *retbuf=MOONOS_MALLOC(len+14);
     unsigned short recvlen=0;
@@ -694,6 +781,16 @@ int eiodpFunction(eIODP_TYPE* eiodp_fd, uint16 code,
     int timeres=0;timeres = sem_timedwait(&(eiodp_fd->func_retsem),&tv);
     if(timeres == -1){IODP_LOGMSG("time out\n");return IODP_ERROR_TIMEOUT;}
 #elif (IODP_OS==IODP_OS_FREERTOS)
+#elif (IODP_OS==IODP_OS_NULL)
+    long timeout=0;
+    while (eiodp_recvProcessTask_nos(eiodp_fd)==-1)
+    {
+        timeout++;
+        if(timeout>1000*10000){
+            IODP_LOGMSG("time out\n");
+            return IODP_ERROR_TIMEOUT;
+        }
+    } 
 #endif
 
     unsigned char *retbuf=MOONOS_MALLOC(IODP_FUNCPKT_RET_LEN);

@@ -45,3 +45,6 @@ target_link_libraries(test_showregfunc ${PROJECT_NAME})
 
 add_executable(test_func test/test_func.c)
 target_link_libraries(test_func ${PROJECT_NAME})
+
+add_executable(test_nos test/test_nos.c)
+target_link_libraries(test_nos ${PROJECT_NAME})

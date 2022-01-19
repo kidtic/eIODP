@@ -1,30 +1,19 @@
 #include <stdio.h>
 
-
+#include <fcntl.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
 #include <eiodp.h>
+
 
 unsigned long recvByte=0;
 extern int udpsend(int fd,char* buf,int len);
 extern int udpread(int fd,char* buf,int len);
 
-void recvspeed(void)
-{
-    unsigned long start,end;
-
-    while(1)
-    {
-        start=recvByte;
-        sleep(1);
-        end=recvByte;
-        printf("recv speed:%.3f MByte/s\n",(double)(end-start)/(1024.0*1024.0));
-    }
-
-}
 
 int func_sum(uint16 len, void* data,uint16* retlen,void* retdata){
     int sum = 0;
@@ -39,25 +28,30 @@ int func_sum(uint16 len, void* data,uint16* retlen,void* retdata){
     return 0;
 }
 
-
-
-#define testpkt_len 100
-int main()
+void slaver(void)
 {
-
-    printf("Init Server!\n");
+     printf("Init Server!\n");
     int socktServer = udpopen(8888,7777);
     eIODP_TYPE* pServer;
     pServer = eiodp_init(socktServer,udpread,udpsend);
     eiodpRegister(pServer,0x666,func_sum);
 
+    while(1)
+    {
+        #if (IODP_OS==IODP_OS_NULL)
+        eiodp_recvProcessTask_nos(pServer);
+        #endif
+    }
+}
+
+#define testpkt_len 100
+void master(void)
+{
     printf("Init Master!\n");
     int sockt = udpopen(7777,8888);
     eIODP_TYPE* pdev=eiodp_init(sockt,udpread,udpsend);
 
-
-
-    /*--------------------------------------*/
+        /*--------------------------------------*/
     srand((int)time(0));
     int errorcnt=0;
     int cnt=0;
@@ -105,4 +99,18 @@ int main()
 
 
     return 0;
+}
+
+int main()
+{
+    pthread_t t1,t2;
+    pthread_create(&t1,NULL,slaver,NULL); 
+    pthread_create(&t2,NULL,master,NULL); 
+
+    while(1)
+    {
+
+    }
+   
+
 }

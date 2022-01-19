@@ -5,7 +5,7 @@
 #include "eiodp_config.h"
 
 //操作系统
-#define IODP_OS_NULL 10
+#define IODP_OS_NULL 0
 #define IODP_OS_LINUX 1
 #define IODP_OS_FREERTOS 2
 
@@ -168,6 +168,15 @@ int eiodpShowRegFunc(eIODP_TYPE* eiodp_fd);
 *************************************************************/
 int eiodpFunction(eIODP_TYPE* eiodp_fd, uint16 code, 
         uint16 argsize,void* arg, void* retarg);
+
+
+/************************************************************
+    @brief:
+        接收服务函数-任务(无操作系统，连续字符read) 在无操作系统的程序里 需要连续调用
+    @param:
+        eiodp_fd:eiodp句柄
+*************************************************************/
+int eiodp_recvProcessTask_nos(eIODP_TYPE* eiodp_fd);
 
 
 int checkpktcrc(unsigned char* data,unsigned int size);
