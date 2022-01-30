@@ -2,3 +2,6 @@ build/
 bin/
 *.so
 *.pyc
+CMakeLists.txt.*
+*.dll*
+*.a
