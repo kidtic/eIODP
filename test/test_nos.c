@@ -9,6 +9,8 @@
 
 #include <eiodp.h>
 
+#include <windows.h>
+
 
 unsigned long recvByte=0;
 extern int udpsend(int fd,char* buf,int len);
@@ -30,7 +32,7 @@ int func_sum(uint16 len, void* data,uint16* retlen,void* retdata){
 
 void slaver(void)
 {
-     printf("Init Server!\n");
+    printf("Init Server!\n");
     int socktServer = udpopen(8888,7777);
     eIODP_TYPE* pServer;
     pServer = eiodp_init(socktServer,udpread,udpsend);
@@ -91,7 +93,7 @@ void master(void)
         if(cnt%100==0)printf("errorcnt=%d cnt=%d \n",errorcnt,cnt);
         //i=1000000;
         //while(i--);
-        usleep(10);
+        Sleep(1);
 
     }
 
@@ -105,6 +107,7 @@ int main()
 {
     pthread_t t1,t2;
     pthread_create(&t1,NULL,slaver,NULL); 
+    Sleep(100);
     pthread_create(&t2,NULL,master,NULL); 
 
     while(1)

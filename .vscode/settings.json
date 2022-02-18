@@ -5,6 +5,10 @@
         "socket.h": "c",
         "ring.h": "c",
         "type.h": "c",
-        "fcntl.h": "c"
-    }
+        "fcntl.h": "c",
+        "windows.h": "c"
+    },
+    "C_Cpp.default.defines": [
+        "WIN32"
+    ]
 }

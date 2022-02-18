@@ -34,16 +34,19 @@ link_directories(${PROJECT_BINARY_DIR}/lib /usr/local/lib /usr/lib)
 
 
 #设置链接库
+if (WIN32)
+link_libraries(wsock32)
+endif()
+
 add_library(${PROJECT_NAME} STATIC
         src/eiodp/eiodp.c 
-        src/eiodp/ring.c 
+        src/eiodp/ring.c
+        src/udpio/udpio.c 
 )
 
-if (UNIX)
-    add_library(${PROJECT_NAME} STATIC
-        src/udpio/udpio.c
-    )
-endif()
+
+
+
 
 
 
@@ -61,6 +64,20 @@ if (UNIX)
     add_executable(test_nos test/test_nos.c)
     target_link_libraries(test_nos ${PROJECT_NAME})
 elseif(WIN32)
-    add_executable(test_qtfunc test/test_qtfunc.c )
-    target_link_libraries(test_qtfunc ${PROJECT_NAME})
+    add_executable(test_rwaddr test/test_rwaddr.c)
+    target_link_libraries(test_rwaddr ${PROJECT_NAME})
+
+    add_executable(test_showregfunc test/test_showregfunc.c)
+    target_link_libraries(test_showregfunc ${PROJECT_NAME})
+
+    add_executable(test_func test/test_func.c)
+    target_link_libraries(test_func ${PROJECT_NAME})
+
+    add_executable(test_nos test/test_nos.c)
+    target_link_libraries(test_nos ${PROJECT_NAME})
+
+    add_executable(test_udpio test/test_udpio.c)
+    target_link_libraries(test_udpio ${PROJECT_NAME})
+    ##add_executable(test_qtfunc test/test_qtfunc.c )
+    ##target_link_libraries(test_qtfunc ${PROJECT_NAME})
 endif()
