@@ -112,7 +112,7 @@ int udpread(int fd,char* buf,int len)
 
 #ifdef UDP_RECVSIG
 #include <pthread.h>
-#include <ring.h>
+#include <eiodp.h>
 #endif
 
 
@@ -125,7 +125,7 @@ struct udpfdtype{
     SOCKET fd;
     struct sockaddr_in target_addr;
 #ifdef UDP_RECVSIG
-    RING* recvbuf;
+    eIODP_RING* recvbuf;
     pthread_t pt;
 #endif
 };

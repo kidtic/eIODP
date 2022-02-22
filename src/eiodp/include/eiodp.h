@@ -1,8 +1,9 @@
 #ifndef _EIODP_H_
 #define _EIODP_H_
 
-#include "ring.h"
+#include "type.h"
 #include "eiodp_config.h"
+#include "stdlib.h"
 
 //操作系统
 #define IODP_OS_NULL 0
@@ -23,6 +24,10 @@
 
 //type mask
 #define IODP_TYPEBIT_SR_MASK 0x80  //判断包为发送还是返回 typebit&IODP_TYPEBIT_SR_MASK==0 为返回包
+
+//malloc
+#define MOONOS_MALLOC(size) malloc(size)
+#define MOONOS_FREE(P) free(P)
 
 
 
@@ -53,14 +58,25 @@ typedef struct
     void* pNext;
 }eIODP_FUNC_NODE;
 
+//eiodp循环缓冲buffer
+typedef struct
+{
+    uint32 bufSize;
+
+    uint8 *buf;
+    uint32 pIn; //环形缓冲的头指针
+    uint32 pOut; //环形缓冲的尾指针
+
+}eIODP_RING;
+
 //
 typedef struct
 {
     unsigned int iodevHandle;   //IO设备的句柄fd
-    RING*  recv_ringbuf;
+    eIODP_RING*  recv_ringbuf;
 
-    RING*  retbuf_readaddr;     //readaddr 类型包的返回包缓存区
-    RING*  retbuf_func;         //function 类型包的返回包缓存区
+    eIODP_RING*  retbuf_readaddr;     //readaddr 类型包的返回包缓存区
+    eIODP_RING*  retbuf_func;         //function 类型包的返回包缓存区
 
     unsigned int configmemSize;
     char configmem[IODP_CONFIGMEM_SIZE];
@@ -181,4 +197,21 @@ int eiodp_recvProcessTask_nos(eIODP_TYPE* eiodp_fd);
 
 int checkpktcrc(unsigned char* data,unsigned int size);
 int updatepktcrc(unsigned char* data,unsigned int size);
+
+void crc32_init();
+
+
+
+//-----------------------------------------------------------------------------------
+//                               eiodp ring buffer
+//
+
+eIODP_RING* creat_ring(uint32 size);
+
+void delate_ring(eIODP_RING* p);
+
+int put_ring(eIODP_RING* p,uint8* buf,uint32 size);
+int get_ring(eIODP_RING* p,uint8* buf,uint32 size);
+uint16 size_ring(eIODP_RING* p);
+
 #endif

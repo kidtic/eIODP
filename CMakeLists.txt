@@ -40,7 +40,6 @@ endif()
 
 add_library(${PROJECT_NAME} STATIC
         src/eiodp/eiodp.c 
-        src/eiodp/ring.c
         src/udpio/udpio.c 
 )
 
